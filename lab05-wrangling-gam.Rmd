@@ -236,8 +236,33 @@ Let's practice running regression models with smooth functions on X. We need the
 -   fit both a linear model and a spline model (use `gam()` with a cubic regression spline on wind speed). Summarize and plot the results from the models and interpret which model is the best fit and why.
 
 ```{r}
+library(ggplot2)
+station_ave[,temp_50 := quantile(temp, probs=.5, na.rm=T), by=STATE]
+station_ave[,wind.sp_50 := quantile(wind.sp, probs=.5, na.rm=T), by=STATE]
+#station_ave[,atm.press_50 := quantile(atm.press, probs=.5, na.rm=T), by=STATE]
+
+ggplot(station_ave, aes(x=wind.sp_50, y=temp_50)) + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_smooth(method="gam", col=2)
+
+library(mgcv)
+lm_mod <- lm(temp_50 ~ wind.sp_50, data=station_ave)
+summary(lm_mod)
+plot(lm_mod)
 
 ```
+
+```{r}
+#gam_mod <- gam(temp_50 ~ s(wind.sp_50, bs = "cr", k=20), data=station_ave)# 20 knocs 
+gam_mod <- gam(temp_50 ~ s(wind.sp_50, bs = "cr"), data= station_ave)
+summary(gam_mod)
+plot(gam_mod)
+```
+
+The spline model is the best fit because the line model has adjusted r-square approximately equal to 0.17 which is terrible, which shows not much variance of the data is being explained by the model. However, the adjusted r-square of the spline model is 0.417, it is much higher than 0.17 and shows more variance is being explained by the spline model.
+
+Further, the visualized linear model does not closely match the data's distribution, but the visualized spline model matches the distribution of the data closer compared to the linear model.
 
 # Delivarables
 
@@ -246,3 +271,9 @@ Let's practice running regression models with smooth functions on X. We need the
 -   Paste the link to the github repo you created here
 
 -   Submit pdf or html output to Quercus
+
+link:
+```{bash}
+https://github.com/Hantang-Li/JSC370-labs
+```
+
