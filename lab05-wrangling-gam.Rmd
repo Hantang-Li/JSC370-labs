@@ -91,6 +91,8 @@ Once you are done setting up the project, you can now start working with the MET
 
 ```{r stations-data}
 library(data.table)
+library(leaflet)
+library(dplyr)
 # Download the data
 stations <- fread("ftp://ftp.ncdc.noaa.gov/pub/data/noaa/isd-history.csv")
 stations[, USAF := as.integer(USAF)]
@@ -113,14 +115,15 @@ stations <- stations[n == 1,][, n := NULL]
 
 3.  Merge the data as we did during the lecture.
 
-## Question 1: Representative station for the US
-
-Across all weather stations, what is the median station in terms of temperature, wind speed, and atmospheric pressure? Look for the three weather stations that best represent continental US using the `quantile()` function. Do these three coincide?
-
 ```{r}
 met <- data.table::fread("met_all.gz")
 met <- merge(x=met, y=stations, all.x = T, all.y=F, by.x="USAFID", by.y="USAF")
 ```
+
+## Question 1: Representative station for the US
+
+Across all weather stations, what is the median station in terms of temperature, wind speed, and atmospheric pressure? Look for the three weather stations that best represent continental US using the `quantile()` function. Do these three coincide?
+
 
 ```{r}
 station_ave <- met[, .(temp = mean(temp, na.rm=T),
@@ -133,7 +136,10 @@ station_ave <- met[, .(temp = mean(temp, na.rm=T),
 medians <- station_ave[,.(temp_50 = quantile(temp, probs=.5, na.rm=T),
                           wind.sp_50 = quantile(wind.sp, probs=.5, na.rm=T),
                           atm.press_50 = quantile(atm.press, probs=.5, na.rm=T))]
+medians
 ```
+
+
 
 Knit the document, commit your changes, and save it on GitHub. Don't forget to add `README.md` to the tree, the first time you render it.
 
@@ -156,6 +162,14 @@ station_ave[,atm.press_dist := abs(atm.press - medians$atm.press_50)]
 median_atm.press_station <- station_ave[order(atm.press_dist)][1]
 ```
 
+```{r}
+median_temp_station
+median_wind.sp_station
+median_atm.press_station
+```
+
+Here we observed that these three stations does not coincide.
+
 Knit the doc and save it on GitHub.
 
 ## Question 3: In the middle?
@@ -173,13 +187,25 @@ mid <- merge(x=met, y=mid_point, by="STATE")
 mid[,mid_eudist := sqrt((lon - lon_50)^2 + (lat = lat_50)^2)]
 mid_station <- mid[,.SD[which.min(mid_eudist)], by = STATE]
 
-library(leaflet)
-library(dplyr)
+median_temp_station_loc <- met %>%  filter(USAFID == median_temp_station$USAFID)
+median_wind.sp_station_loc <- met %>%  filter(USAFID == median_wind.sp_station$USAFID)
+median_atm.press_station_loc <- met %>%  filter(USAFID == median_atm.press_station$USAFID)
+
+
 leaflet() %>% 
   addProviderTiles("CartoDB.Positron") %>% 
   addCircles(data = mid_station,
              lat = ~lat, lng = ~lon, popup="mid station",
-             opacity = 1, fillOpacity = 1, radius = 400, color = "Blue")
+             opacity = 1, fillOpacity = 1, radius = 400, color = "Blue") %>% 
+  addCircles(data = median_temp_station_loc[1],
+             lat = ~lat, lng = ~lon, popup="median_temp_station",
+             opacity = 1, fillOpacity = 1, radius = 400, color = "Red") %>% 
+  addCircles(data = median_wind.sp_station_loc[1],
+             lat = ~lat, lng = ~lon, popup="median_wind.sp_station",
+             opacity = 1, fillOpacity = 1, radius = 400, color = "Yellow")%>% 
+  addCircles(data = median_atm.press_station_loc[1],
+             lat = ~lat, lng = ~lon, popup="median_atm.press_station",
+             opacity = 1, fillOpacity = 1, radius = 400, color = "Green")
 ```
 
 Knit the doc and save it on GitHub.
@@ -273,7 +299,7 @@ Further, the visualized linear model does not closely match the data's distribut
 -   Submit pdf or html output to Quercus
 
 link:
-```{bash}
+
 https://github.com/Hantang-Li/JSC370-labs
-```
+
 

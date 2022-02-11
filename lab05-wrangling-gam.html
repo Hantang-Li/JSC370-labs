@@ -5360,7 +5360,20 @@ and also the station data. For the latter, you can use the code we used
 during lecture to pre-process the stations data:</p></li>
 </ol>
 <pre class="r"><code>library(data.table)
-# Download the data
+library(leaflet)
+library(dplyr)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;dplyr&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:data.table&#39;:
+## 
+##     between, first, last</code></pre>
+<pre><code>## The following objects are masked from &#39;package:stats&#39;:
+## 
+##     filter, lag</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
+## 
+##     intersect, setdiff, setequal, union</code></pre>
+<pre class="r"><code># Download the data
 stations &lt;- fread(&quot;ftp://ftp.ncdc.noaa.gov/pub/data/noaa/isd-history.csv&quot;)
 stations[, USAF := as.integer(USAF)]</code></pre>
 <pre><code>## Warning in eval(jsub, SDenv, parent.frame()): NAs introduced by coercion</code></pre>
@@ -5381,6 +5394,8 @@ stations &lt;- stations[n == 1,][, n := NULL]</code></pre>
 <ol start="3" style="list-style-type: decimal">
 <li>Merge the data as we did during the lecture.</li>
 </ol>
+<pre class="r"><code>met &lt;- data.table::fread(&quot;met_all.gz&quot;)
+met &lt;- merge(x=met, y=stations, all.x = T, all.y=F, by.x=&quot;USAFID&quot;, by.y=&quot;USAF&quot;)</code></pre>
 </div>
 <div id="question-1-representative-station-for-the-us" class="section level2">
 <h2>Question 1: Representative station for the US</h2>
@@ -5388,15 +5403,16 @@ stations &lt;- stations[n == 1,][, n := NULL]</code></pre>
 temperature, wind speed, and atmospheric pressure? Look for the three
 weather stations that best represent continental US using the
 <code>quantile()</code> function. Do these three coincide?</p>
-<pre class="r"><code>met &lt;- data.table::fread(&quot;met_all.gz&quot;)
-met &lt;- merge(x=met, y=stations, all.x = T, all.y=F, by.x=&quot;USAFID&quot;, by.y=&quot;USAF&quot;)</code></pre>
 <pre class="r"><code>station_ave &lt;- met[, .(temp = mean(temp, na.rm=T),
                        wind.sp = mean(wind.sp, na.rm=T),
                        atm.press=mean(atm.press,na.rm=T)),
                    by = .(USAFID, STATE)]</code></pre>
 <pre class="r"><code>medians &lt;- station_ave[,.(temp_50 = quantile(temp, probs=.5, na.rm=T),
                           wind.sp_50 = quantile(wind.sp, probs=.5, na.rm=T),
-                          atm.press_50 = quantile(atm.press, probs=.5, na.rm=T))]</code></pre>
+                          atm.press_50 = quantile(atm.press, probs=.5, na.rm=T))]
+medians</code></pre>
+<pre><code>##     temp_50 wind.sp_50 atm.press_50
+## 1: 23.68406   2.461838     1014.691</code></pre>
 <p>Knit the document, commit your changes, and save it on GitHub. Don’t
 forget to add <code>README.md</code> to the tree, the first time you
 render it.</p>
@@ -5420,6 +5436,18 @@ median_wind.sp_station &lt;- station_ave[order(wind.sp_dist)][1]
 # median atm.press
 station_ave[,atm.press_dist := abs(atm.press - medians$atm.press_50)]
 median_atm.press_station &lt;- station_ave[order(atm.press_dist)][1]</code></pre>
+<pre class="r"><code>median_temp_station</code></pre>
+<pre><code>##    USAFID STATE     temp  wind.sp atm.press   temp_dist
+## 1: 720458    KY 23.68173 1.209682       NaN 0.002328907</code></pre>
+<pre class="r"><code>median_wind.sp_station</code></pre>
+<pre><code>##    USAFID STATE     temp  wind.sp atm.press temp_dist wind.sp_dist
+## 1: 720929    WI 17.43278 2.461838       NaN  6.251284            0</code></pre>
+<pre class="r"><code>median_atm.press_station</code></pre>
+<pre><code>##    USAFID STATE     temp  wind.sp atm.press temp_dist wind.sp_dist
+## 1: 722238    AL 26.13978 1.472656  1014.691  2.455719    0.9891817
+##    atm.press_dist
+## 1:   0.0005376377</code></pre>
+<p>Here we observed that these three stations does not coincide.</p>
 <p>Knit the doc and save it on GitHub.</p>
 </div>
 <div id="question-3-in-the-middle" class="section level2">
@@ -5439,26 +5467,27 @@ mid &lt;- merge(x=met, y=mid_point, by=&quot;STATE&quot;)
 mid[,mid_eudist := sqrt((lon - lon_50)^2 + (lat = lat_50)^2)]
 mid_station &lt;- mid[,.SD[which.min(mid_eudist)], by = STATE]
 
-library(leaflet)
-library(dplyr)</code></pre>
-<pre><code>## 
-## Attaching package: &#39;dplyr&#39;</code></pre>
-<pre><code>## The following objects are masked from &#39;package:data.table&#39;:
-## 
-##     between, first, last</code></pre>
-<pre><code>## The following objects are masked from &#39;package:stats&#39;:
-## 
-##     filter, lag</code></pre>
-<pre><code>## The following objects are masked from &#39;package:base&#39;:
-## 
-##     intersect, setdiff, setequal, union</code></pre>
-<pre class="r"><code>leaflet() %&gt;% 
+median_temp_station_loc &lt;- met %&gt;%  filter(USAFID == median_temp_station$USAFID)
+median_wind.sp_station_loc &lt;- met %&gt;%  filter(USAFID == median_wind.sp_station$USAFID)
+median_atm.press_station_loc &lt;- met %&gt;%  filter(USAFID == median_atm.press_station$USAFID)
+
+
+leaflet() %&gt;% 
   addProviderTiles(&quot;CartoDB.Positron&quot;) %&gt;% 
   addCircles(data = mid_station,
              lat = ~lat, lng = ~lon, popup=&quot;mid station&quot;,
-             opacity = 1, fillOpacity = 1, radius = 400, color = &quot;Blue&quot;)</code></pre>
-<div id="htmlwidget-19ca2867edebcb622ba0" style="width:672px;height:480px;" class="leaflet html-widget"></div>
-<script type="application/json" data-for="htmlwidget-19ca2867edebcb622ba0">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addProviderTiles","args":["CartoDB.Positron",null,null,{"errorTileUrl":"","noWrap":false,"detectRetina":false}]},{"method":"addCircles","args":[[34.861,33.617,33.467,34.899,37.439,41.938,39.133,30.219,31.684,41.691,43.567,37.186,39.825,37.648,39.044,27.833,42.584,39.173,44.533,43.322,44.859,38.704,32.321,45.698,35.582,48.884,41.73,43.205,40.8,32.84,40.612,43.234,40.078,36.75,42.6,41.243,41.733,32.412,43.767,35.38,27.779,38.427,39.078,44.204,48.467,43.522,37.867,43.467],[-86.557,-92.767,-111.733,-120.448,-105.861,-72.682,-75.467,-81.876,-83.27,-93.566,-116.24,-88.751,-86.296,-97.43,-84.672,-91.983,-70.918,-76.684,-69.667,-84.688,-94.382,-93.183,-90.078,-110.44,-79.101,-99.621,-98.054,-71.503,-74.417,-105.99,-116.891,-75.412,-83.078,-97.35,-123.364,-76.922,-71.433,-80.634,-99.318,-86.246,-97.691,-113.012,-77.558,-72.562,-122.416,-89.774,-80.4,-108.389],400,null,null,{"interactive":true,"className":"","stroke":true,"color":"Blue","weight":5,"opacity":1,"fill":true,"fillColor":"Blue","fillOpacity":1},"mid station",null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null,null]}],"limits":{"lat":[27.779,48.884],"lng":[-123.364,-69.667]}},"evals":[],"jsHooks":[]}</script>
+             opacity = 1, fillOpacity = 1, radius = 400, color = &quot;Blue&quot;) %&gt;% 
+  addCircles(data = median_temp_station_loc[1],
+             lat = ~lat, lng = ~lon, popup=&quot;median_temp_station&quot;,
+             opacity = 1, fillOpacity = 1, radius = 400, color = &quot;Red&quot;) %&gt;% 
+  addCircles(data = median_wind.sp_station_loc[1],
+             lat = ~lat, lng = ~lon, popup=&quot;median_wind.sp_station&quot;,
+             opacity = 1, fillOpacity = 1, radius = 400, color = &quot;Yellow&quot;)%&gt;% 
+  addCircles(data = median_atm.press_station_loc[1],
+             lat = ~lat, lng = ~lon, popup=&quot;median_atm.press_station&quot;,
+             opacity = 1, fillOpacity = 1, radius = 400, color = &quot;Green&quot;)</code></pre>
+<div id="htmlwidget-4c60f53aad65035dedd0" style="width:672px;height:480px;" class="leaflet html-widget"></div>
+<script type="application/json" data-for="htmlwidget-4c60f53aad65035dedd0">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addProviderTiles","args":["CartoDB.Positron",null,null,{"errorTileUrl":"","noWrap":false,"detectRetina":false}]},{"method":"addCircles","args":[[34.861,33.617,33.467,34.899,37.439,41.938,39.133,30.219,31.684,41.691,43.567,37.186,39.825,37.648,39.044,27.833,42.584,39.173,44.533,43.322,44.859,38.704,32.321,45.698,35.582,48.884,41.73,43.205,40.8,32.84,40.612,43.234,40.078,36.75,42.6,41.243,41.733,32.412,43.767,35.38,27.779,38.427,39.078,44.204,48.467,43.522,37.867,43.467],[-86.557,-92.767,-111.733,-120.448,-105.861,-72.682,-75.467,-81.876,-83.27,-93.566,-116.24,-88.751,-86.296,-97.43,-84.672,-91.983,-70.918,-76.684,-69.667,-84.688,-94.382,-93.183,-90.078,-110.44,-79.101,-99.621,-98.054,-71.503,-74.417,-105.99,-116.891,-75.412,-83.078,-97.35,-123.364,-76.922,-71.433,-80.634,-99.318,-86.246,-97.691,-113.012,-77.558,-72.562,-122.416,-89.774,-80.4,-108.389],400,null,null,{"interactive":true,"className":"","stroke":true,"color":"Blue","weight":5,"opacity":1,"fill":true,"fillColor":"Blue","fillOpacity":1},"mid station",null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null,null]},{"method":"addCircles","args":[37.751,-82.637,400,null,null,{"interactive":true,"className":"","stroke":true,"color":"Red","weight":5,"opacity":1,"fill":true,"fillColor":"Red","fillOpacity":1},"median_temp_station",null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null,null]},{"method":"addCircles","args":[45.506,-91.981,400,null,null,{"interactive":true,"className":"","stroke":true,"color":"Yellow","weight":5,"opacity":1,"fill":true,"fillColor":"Yellow","fillOpacity":1},"median_wind.sp_station",null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null,null]},{"method":"addCircles","args":[31.35,-85.667,400,null,null,{"interactive":true,"className":"","stroke":true,"color":"Green","weight":5,"opacity":1,"fill":true,"fillColor":"Green","fillOpacity":1},"median_atm.press_station",null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null,null]}],"limits":{"lat":[27.779,48.884],"lng":[-123.364,-69.667]}},"evals":[],"jsHooks":[]}</script>
 <p>Knit the doc and save it on GitHub.</p>
 </div>
 <div id="question-4-means-of-means" class="section level2">
@@ -5660,6 +5689,8 @@ distribution of the data closer compared to the linear model.</p>
 <li><p>Paste the link to the github repo you created here</p></li>
 <li><p>Submit pdf or html output to Quercus</p></li>
 </ul>
+<p>link:</p>
+<p><a href="https://github.com/Hantang-Li/JSC370-labs" class="uri">https://github.com/Hantang-Li/JSC370-labs</a></p>
 </div>
 
 
